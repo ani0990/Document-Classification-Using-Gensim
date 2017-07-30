@@ -8,7 +8,7 @@ import pandas as pd
 import configparser as cp
 
 config = cp.RawConfigParser()
-config.read('q3v2.cfg')
+config.read('docvec1.cfg')
 
 train_file = config.get('SectionOne', 'Train_file')
 test_file = config.get('SectionOne', 'Test_file')
