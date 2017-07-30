@@ -5,19 +5,22 @@ from sklearn.svm import SVC
 from sklearn.metrics import f1_score
 from sklearn.metrics import accuracy_score
 import pandas as pd
+import configparser as cp
 
-train_file = "sampletrain.tsv"
-test_file = "final_prediction.tsv"
+config = cp.RawConfigParser()
+config.read('q3v2.cfg')
 
-def read_corpus(fname, tokens_only=False):
+train_file = config.get('SectionOne', 'Train_file')
+test_file = config.get('SectionOne', 'Test_file')
+
+def read_corpus(fname,token_only = False):
 	with open(fname, encoding="utf-8") as f:
 		for i, line in enumerate(f):
 			tmp = line.strip().split("\t")
-			if tokens_only:
-				yield gensim.utils.simple_preprocess(tmp[1])
-			else:
-			# For training data, add tags
+			if len(tmp)>1:
 				yield gensim.models.doc2vec.TaggedDocument(gensim.utils.simple_preprocess(tmp[1]), [i])
+			else:
+				yield gensim.models.doc2vec.TaggedDocument(gensim.utils.simple_preprocess(tmp[0]))
 
 train_corpus = list(read_corpus(train_file))
 test_corpus = list(read_corpus(test_file))
@@ -41,12 +44,8 @@ for epoch in range(5):
     model.min_alpha = model.alpha # fix the learning rate, no deca
     print("Epoch %s completed...." %(epoch))
 
-model.save("Gensimdocvec.model")
+model.save(config.get('SectionOne', 'Model_Path'))
 """
-
-# inference_vector = model_load.infer_vector(train_corpus[0][0])
-# print(inference_vector)
-# print(type(inference_vector))
 
 def read_tags_sent(fname):
 	with open(fname, encoding="utf-8") as f:
@@ -54,13 +53,16 @@ def read_tags_sent(fname):
 		sentence=[]
 		for line in f:
 			tmp = line.strip().split("\t")
-			label.append(tmp[0])
-			sentence.append(tmp[1])
+			if len(tmp)> 1:
+				label.append(tmp[0])
+				sentence.append(tmp[1])
+			else:
+				sentence.append(tmp[0])
 	return label,sentence
 
 
 def create_vectors(corpus):
-	model_load = gensim.models.doc2vec.Doc2Vec.load("Gensimdocvec.model")
+	model_load = gensim.models.doc2vec.Doc2Vec.load(config.get('SectionOne', 'Model_Path'))
 	corpus_features=[]
 	for i in range(0,len(corpus)):
 		corpus_features.append(model_load.infer_vector(corpus[i][0]))
@@ -79,10 +81,13 @@ lr = LogisticRegression()
 second_model = lr.fit(train_data_features,train_target)
 test_prediction = lr.predict(test_data_features)
 
-print("Accuracy test- ")
-print(accuracy_score(test_target, test_prediction))
-print("F1 Score test- ")
-print(f1_score(test_target, test_prediction, average='weighted'))
-
-main_data = pd.DataFrame({'TFIdf_RF_Pred': test_target,'DocVecPred': test_prediction,'Sentence': test_sentence})
-main_data.to_csv("C:/Users/anirudh/Desktop/Smarte/final_prediction_comparison.tsv", index=False, encoding="utf-8",header = True,sep="\t")
+if len(test_target)!=0:
+	print("Accuracy test- ")
+	print(accuracy_score(test_target, test_prediction))
+	print("F1 Score test- ")
+	print(f1_score(test_target, test_prediction, average='weighted'))
+	main_data = pd.DataFrame({'Orig_Val': test_target,'DocVecPred': test_prediction,'Sentence': test_sentence})
+	main_data.to_csv(config.get('SectionOne', 'Save_Result'), index=False, encoding="utf-8",header = True,sep="\t")
+else:
+	main_data = pd.DataFrame({'DocVecPred': test_prediction,'Sentence': test_sentence})
+	main_data.to_csv(config.get('SectionOne', 'Save_Result'), index=False, encoding="utf-8",header = True,sep="\t")
